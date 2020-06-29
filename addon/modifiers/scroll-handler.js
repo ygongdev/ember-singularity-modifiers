@@ -1,56 +1,66 @@
+import Modifier from 'ember-modifier';
+import { scheduleOnce } from '@ember/runloop';
+import { inject as service } from '@ember/service';
 /**
  * The scroll-handler mixin adds an easy-to-use "scroll" hook, similar to the
  * default Ember hook for click(). It is only applicable to views/components.
  */
-import Ember from 'ember';
 
 const SCROLL = 'scroll';
 const EVENTTARGET = 'eventTarget';
 const WINDOW = 'window';
 
-export default Ember.Mixin.create({
-  unifiedEventHandler: Ember.inject.service('unified-event-handler'),
+export default class ScrollModifier extends Modifier {
+  @service('unified-event-handler') unifiedEventHandler
 
   // The target of the scrolling event, defaults to the window
-  [EVENTTARGET]: WINDOW,
+  [EVENTTARGET] =  WINDOW
 
   // The hook for your scroll functionality, you must implement this
-  [SCROLL]: undefined,
+  [SCROLL] = undefined
 
   // Interval in milliseconds at which the scroll handler will be called
   // `undefined` by default, can be overridden if custom interval is needed
-  scrollEventInterval: undefined,
+  scrollEventInterval = undefined
 
   // Whether to trigger the scroll handler on initial insert
-  triggerOnInsert: false,
+  triggerOnInsert = false
+
+  didInstall() {
+    this._registerScrollHandlers();
+  }
+
+  willDestroy() {
+    this._unregisterScrollHandlers();
+  }
 
   // Setups up the handler binding for the scroll function
-  registerScrollHandlers: Ember.on('didInsertElement', function() {
+  _registerScrollHandlers() {
     // TODO: limit this to the views object (this.$()) or the window
-    let eventTarget = this.get(EVENTTARGET);
+    let eventTarget = this.EVENTTARGET;
 
     // Bind 'this' context to the scroll handler for when passed as a callback
-    let scroll = this.get(SCROLL).bind(this);
+    let scroll = this.SCROLL.bind(this);
 
     // Save the newly bound function back as a reference for deregistration.
-    this.set(SCROLL, scroll);
+    this.SCROLL = scroll;
 
-    this.get('unifiedEventHandler').register(eventTarget, SCROLL, scroll, this.get('scrollEventInterval'));
+    this.unifiedEventHandler.register(eventTarget, SCROLL, scroll, this.scrollEventInterval);
 
     this._scrollHandlerRegistered = true;
 
-    if (this.get('triggerOnInsert')) {
-      Ember.run.scheduleOnce('afterRender', scroll);
+    if (this.triggerOnInsert) {
+      scheduleOnce('afterRender', scroll);
     }
-  }),
+  }
 
   // Unbinds the event handler on destruction of the view
-  unregisterScrollHandlers: Ember.on('willDestroyElement', function() {
+  _unregisterScrollHandlers() {
     if (this._scrollHandlerRegistered) {
-      let scroll = this.get(SCROLL);
-      let eventTarget = this.get(EVENTTARGET);
-      this.get('unifiedEventHandler').unregister(eventTarget, SCROLL, scroll);
+      let scroll = this.SCROLL;
+      let eventTarget = this.EVENTTARGET;
+      this.unifiedEventHandler.unregister(eventTarget, SCROLL, scroll);
       this._scrollHandlerRegistered = false;
     }
-  })
-});
+  }
+};
